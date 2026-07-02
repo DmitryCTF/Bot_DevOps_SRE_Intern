@@ -100,10 +100,12 @@ async def new_message_handler(event):
 
     chat = await event.get_chat()
 
-    source = getattr(chat, "title", None)
+    username = getattr(chat, "username", None)
 
-    if source is None:
-        source = getattr(chat, "username", "Неизвестный источник")
+    if username:
+        source = f"@{username}"
+    else:
+        source = getattr(chat, "title", "Неизвестный источник")
 
     await process_post(post_text, source)
 
