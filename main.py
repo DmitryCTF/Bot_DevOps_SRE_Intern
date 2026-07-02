@@ -1,8 +1,9 @@
 import os
+import json
 import asyncio
 
 from dotenv import load_dotenv
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, utils
 from telethon.errors import FloodWaitError, PeerFloodError
 
 
@@ -18,6 +19,11 @@ if api_id_raw is None:
 
 if api_hash is None:
     raise RuntimeError("Не найден API_HASH. Проверь файл .env")
+
+
+RECENT_POSTS_LIMIT = 5
+SEND_DELAY_SECONDS = 10
+PROCESSED_MESSAGES_FILE = "processed_messages.json"
 
 
 def normalize_chat_source(source):
@@ -38,8 +44,36 @@ def normalize_chat_source(source):
     return source
 
 
-api_id = int(api_id_raw)
+def load_processed_messages():
+    try:
+        with open(PROCESSED_MESSAGES_FILE, "r", encoding="utf-8") as file:
+            messages = json.load(file)
 
+        return set(messages)
+
+    except FileNotFoundError:
+        return set()
+
+    except json.JSONDecodeError:
+        print("Файл processed_messages.json повреждён. Начинаю с пустого списка.")
+        return set()
+
+
+def save_processed_messages():
+    with open(PROCESSED_MESSAGES_FILE, "w", encoding="utf-8") as file:
+        json.dump(
+            sorted(processed_messages),
+            file,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+
+def make_message_key(chat_id, message_id):
+    return f"{chat_id}:{message_id}"
+
+
+api_id = int(api_id_raw)
 session_name = "telegram_session"
 
 source_chats = [
@@ -50,10 +84,7 @@ source_chats = [
 
 client = TelegramClient(session_name, api_id, api_hash)
 
-processed_messages = set()
-
-RECENT_POSTS_LIMIT = 5
-SEND_DELAY_SECONDS = 10
+processed_messages = load_processed_messages()
 
 
 keywords = [
@@ -153,13 +184,14 @@ async def process_post(post_text, source, post_link=None):
 
 @client.on(events.NewMessage(chats=source_chats))
 async def new_message_handler(event):
-    message_key = (event.chat_id, event.id)
+    message_key = make_message_key(event.chat_id, event.id)
 
     if message_key in processed_messages:
         print(f"Дубликат пропущен: {message_key}")
         return
 
     processed_messages.add(message_key)
+    save_processed_messages()
 
     post_text = event.raw_text
 
@@ -192,15 +224,16 @@ async def check_recent_posts():
                 message_chat_id = getattr(message, "chat_id", None)
 
                 if message_chat_id is None:
-                    message_chat_id = chat.id
+                    message_chat_id = utils.get_peer_id(chat)
 
-                message_key = (message_chat_id, message.id)
+                message_key = make_message_key(message_chat_id, message.id)
 
                 if message_key in processed_messages:
                     print(f"Дубликат пропущен: {message_key}")
                     continue
 
                 processed_messages.add(message_key)
+                save_processed_messages()
 
                 post_text = message.raw_text
 
