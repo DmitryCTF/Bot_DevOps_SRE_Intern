@@ -6,6 +6,7 @@ from telethon import TelegramClient, events
 load_dotenv()
 api_id_raw = os.getenv("API_ID")
 api_hash = os.getenv("API_HASH")
+target_chat = os.getenv("TARGET_CHAT", "me")
 
 if api_id_raw is None:
     raise RuntimeError("Не найден API_ID. Проверь файл .env")
@@ -23,6 +24,9 @@ async def check_telegram_connection():
     print(f"Имя: {me.first_name}")
     print(f"Username: {me.username}")
     print(f"ID аккаунта: {me.id}")
+
+    await client.send_message(target_chat, "Это тестовое сообщение из Python.")
+    print(f"Отправлено в {target_chat}")
 
 def find_keywords(post_text, keywords):
     post_text_lower = post_text.lower()
