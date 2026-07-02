@@ -1,7 +1,8 @@
-
 import os
+import asyncio
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
+from telethon.errors import FloodWaitError, PeerFloodError
 
 load_dotenv()
 api_id_raw = os.getenv("API_ID")
@@ -72,30 +73,39 @@ async def process_post(post_text, source):
     if not found_keywords:
         print(f"Пост из источника {source} пропущен")
         return
+
     telegram_message = format_found_post_message(post_text, found_keywords, source)
 
-    await client.send_message(target_chat, telegram_message)
+    try:
+        await client.send_message(target_chat, telegram_message)
 
-    print(f"Пост из источника {source} отправлен в {target_chat}")
-    print(f"Найденные слова: {found_keywords}")
+        print(f"Пост из источника {source} отправлен в {target_chat}")
+        print(f"Найденные слова: {found_keywords}")
 
-fake_posts = [    {
-        "source": "devops_jobs",
-        "text": "Ищем devops sre инженера в команду",
-    },
-    {
-        "source": "python_jobs",
-        "text": "Нужен Python backend developer",
-    },
-    {
-        "source": "infra_news",
-        "text": "Новый релиз Kubernetes уже доступен",
-    },
-    {
-        "source": "random_channel",
-        "text": "Сегодня хорошая погода",
-    },
-]
+        await asyncio.sleep(5)
+
+    except FloodWaitError as error:
+        print(f"Telegram просит подождать {error.seconds} секунд")
+        await asyncio.sleep(error.seconds)
+
+    except PeerFloodError:
+        print("Telegram временно ограничил отправку сообщений. Останови бота и попробуй позже.")
+
+@client.on(events.NewMessage(chats=source_chats))
+async def new_message_handler(event):
+    post_text = event.raw_text
+
+    if not post_text:
+        return
+
+    chat = await event.get_chat()
+
+    source = getattr(chat, "title", None)
+
+    if source is None:
+        source = getattr(chat, "username", "Неизвестный источник")
+
+    await process_post(post_text, source)
 
 keywords = [
     "DevOps",
@@ -119,10 +129,8 @@ async def main():
     print(f"Целевой чат: {target_chat}")
     print(f"Количество источников: {len(source_chats)}")
     print(f"Источники: {source_chats}")
-
-    for post in fake_posts:
-        await process_post(post["text"], post["source"])
-
+    print("Бот запущен и ждёт новые посты...")
 
 with client:
     client.loop.run_until_complete(main())
+    client.run_until_disconnected()
