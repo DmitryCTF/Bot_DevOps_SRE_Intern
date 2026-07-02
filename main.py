@@ -14,9 +14,15 @@ if api_hash is None:
     raise RuntimeError("Не найден API_HASH. Проверь файл .env")
 
 api_id = int(api_id_raw)
-print("Telegram-настройки успешно загружены")
-print(f"API_ID: {api_id}")
-print(f"API_HASH длина: {len(api_hash)} символов")
+session_name = "telegram_session"
+client = TelegramClient(session_name, api_id, api_hash)
+async def check_telegram_connection():
+    me = await client.get_me()
+
+    print("Успешно подключились к Telegram")
+    print(f"Имя: {me.first_name}")
+    print(f"Username: {me.username}")
+    print(f"ID аккаунта: {me.id}")
 
 def find_keywords(post_text, keywords):
     post_text_lower = post_text.lower()
@@ -49,3 +55,6 @@ if found_keywords:
     print(f"Найденные слова: {found_keywords}")
 else:
     print("Ключевые слова не найдены")
+
+with client:
+    client.loop.run_until_complete(check_telegram_connection())
