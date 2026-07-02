@@ -7,6 +7,7 @@ load_dotenv()
 api_id_raw = os.getenv("API_ID")
 api_hash = os.getenv("API_HASH")
 target_chat = os.getenv("TARGET_CHAT", "me")
+source_chats_raw = os.getenv("SOURCE_CHATS", "")
 
 if api_id_raw is None:
     raise RuntimeError("Не найден API_ID. Проверь файл .env")
@@ -14,8 +15,30 @@ if api_id_raw is None:
 if api_hash is None:
     raise RuntimeError("Не найден API_HASH. Проверь файл .env")
 
+def normalize_chat_source(source):
+    source = source.strip()
+
+    if source.startswith("https://t.me/"):
+        source = source.replace("https://t.me/", "")
+
+    if source.startswith("http://t.me/"):
+        source = source.replace("http://t.me/", "")
+
+    if source.startswith("t.me/"):
+        source = source.replace("t.me/", "")
+
+    if not source.startswith("@"):
+        source = "@" + source
+
+    return source
+
 api_id = int(api_id_raw)
 session_name = "telegram_session"
+source_chats = [
+    normalize_chat_source(chat)
+    for chat in source_chats_raw.split(",")
+    if chat.strip()
+]
 client = TelegramClient(session_name, api_id, api_hash)
 
 def find_keywords(post_text, keywords):
@@ -80,13 +103,22 @@ keywords = [
     "Системный Администратор",
     "Intern",
     "Екатеринбург",
+    "Прикладной администратор",
+    "Администрирование",
+    "Системный администратор",
+    "Сис. админ",
+    "Сис админ"
 ]
 async def main():
     me = await client.get_me()
+
     print("Успешно подключились к Telegram")
     print(f"Имя: {me.first_name}")
     print(f"Username: {me.username}")
     print(f"ID аккаунта: {me.id}")
+    print(f"Целевой чат: {target_chat}")
+    print(f"Количество источников: {len(source_chats)}")
+    print(f"Источники: {source_chats}")
 
     for post in fake_posts:
         await process_post(post["text"], post["source"])
