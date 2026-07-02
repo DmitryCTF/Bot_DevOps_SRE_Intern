@@ -1,4 +1,4 @@
-import keyword
+
 import os
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
@@ -17,17 +17,6 @@ if api_hash is None:
 api_id = int(api_id_raw)
 session_name = "telegram_session"
 client = TelegramClient(session_name, api_id, api_hash)
-async def check_telegram_connection():
-    me = await client.get_me()
-
-    print("Успешно подключились к Telegram")
-    print(f"Имя: {me.first_name}")
-    print(f"Username: {me.username}")
-    print(f"ID аккаунта: {me.id}")
-
-    if found_keywords:
-        await client.send_message(target_chat, telegram_message)
-        print(f"Отправлено в {target_chat}")
 
 def find_keywords(post_text, keywords):
     post_text_lower = post_text.lower()
@@ -42,19 +31,48 @@ def find_keywords(post_text, keywords):
 
     return found_keywords
 
-def format_found_post_message(post_text, found_keywords):
+def format_found_post_message(post_text, found_keywords, source):
     keywords_text = ", ".join(found_keywords)
 
     message = (
         "🔎 Найден подходящий пост\n\n"
+        f"Источник: {source}\n"
         f"Ключевые слова: {keywords_text}\n\n"
         f"Текст:\n{post_text}"
     )
 
     return message
 
+async def process_post(post_text, source):
+    found_keywords = find_keywords(post_text, keywords)
 
-post_text = "Ищем devops sre инженера в команду"
+    if not found_keywords:
+        print(f"Пост из источника {source} пропущен")
+        return
+    telegram_message = format_found_post_message(post_text, found_keywords, source)
+
+    await client.send_message(target_chat, telegram_message)
+
+    print(f"Пост из источника {source} отправлен в {target_chat}")
+    print(f"Найденные слова: {found_keywords}")
+
+fake_posts = [    {
+        "source": "devops_jobs",
+        "text": "Ищем devops sre инженера в команду",
+    },
+    {
+        "source": "python_jobs",
+        "text": "Нужен Python backend developer",
+    },
+    {
+        "source": "infra_news",
+        "text": "Новый релиз Kubernetes уже доступен",
+    },
+    {
+        "source": "random_channel",
+        "text": "Сегодня хорошая погода",
+    },
+]
 
 keywords = [
     "DevOps",
@@ -63,19 +81,16 @@ keywords = [
     "Intern",
     "Екатеринбург",
 ]
+async def main():
+    me = await client.get_me()
+    print("Успешно подключились к Telegram")
+    print(f"Имя: {me.first_name}")
+    print(f"Username: {me.username}")
+    print(f"ID аккаунта: {me.id}")
 
-found_keywords = find_keywords(post_text, keywords)
+    for post in fake_posts:
+        await process_post(post["text"], post["source"])
 
-if found_keywords:
-    print("Ключевые слова найдены")
-    print(f"Найденные слова: {found_keywords}")
-
-    telegram_message = format_found_post_message(post_text, found_keywords)
-    print("Сообщение для тг")
-    print(telegram_message)
-
-else:
-    print("Ключевые слова не найдены")
 
 with client:
-    client.loop.run_until_complete(check_telegram_connection())
+    client.loop.run_until_complete(main())
