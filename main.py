@@ -25,8 +25,9 @@ async def check_telegram_connection():
     print(f"Username: {me.username}")
     print(f"ID аккаунта: {me.id}")
 
-    await client.send_message(target_chat, "Это тестовое сообщение из Python.")
-    print(f"Отправлено в {target_chat}")
+    if found_keywords:
+        await client.send_message(target_chat, telegram_message)
+        print(f"Отправлено в {target_chat}")
 
 def find_keywords(post_text, keywords):
     post_text_lower = post_text.lower()
@@ -40,6 +41,17 @@ def find_keywords(post_text, keywords):
             found_keywords.append(keyword)
 
     return found_keywords
+
+def format_found_post_message(post_text, found_keywords):
+    keywords_text = ", ".join(found_keywords)
+
+    message = (
+        "🔎 Найден подходящий пост\n\n"
+        f"Ключевые слова: {keywords_text}\n\n"
+        f"Текст:\n{post_text}"
+    )
+
+    return message
 
 
 post_text = "Ищем devops sre инженера в команду"
@@ -57,6 +69,11 @@ found_keywords = find_keywords(post_text, keywords)
 if found_keywords:
     print("Ключевые слова найдены")
     print(f"Найденные слова: {found_keywords}")
+
+    telegram_message = format_found_post_message(post_text, found_keywords)
+    print("Сообщение для тг")
+    print(telegram_message)
+
 else:
     print("Ключевые слова не найдены")
 
